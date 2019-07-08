@@ -13,20 +13,31 @@ server.use(express.urlencoded({ extended: false }));
 
 
 var history = []
+var position = {
+    "x": 250,
+    "y": 250
+}
 
 //normal functions :)
 server.get("/messaging", function (req, res) {
     res.send({
-        history: history
+        history: history,
+        position: position
     })
 });
 
 server.post("/messaging", function (req, res) {
-    var body = {
-        message: req.body.message
-    }
     history.push(req.body.message)
     res.send(history)
+});
+
+server.post("/game", function (req, res) {
+    if(req.body.move == "left"){
+        position.x -= 10
+    } else {
+        position.x += 10
+    }
+    res.send(position)
 });
 
 // server.delete("/posts/:id", function (req, res) {
