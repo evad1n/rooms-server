@@ -11,8 +11,12 @@ server.use(cors());
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
+//Global session info
+var users = []
+
 // MESSAGING
-var messageHistory = []
+var mainMessageHistory = []
+var sideMessageHistory = []
 
 // GAME
 var gameMessageHistory = []
@@ -20,15 +24,26 @@ var characters = []
 var characterCount = 0
 
 //normal functions :)
-server.get("/messaging", function (req, res) {
+server.get("/messaging/main", function (req, res) {
     res.send({
-        history: messageHistory,
+        history: mainMessageHistory,
     })
 });
 
-server.post("/messaging", function (req, res) {
-    messageHistory.push(req.body.message)
-    res.send(messageHistory)
+server.post("/messaging/main", function (req, res) {
+    mainMessageHistory.push(req.body.message)
+    res.send(mainMessageHistory)
+});
+
+server.get("/messaging/side", function (req, res) {
+    res.send({
+        history: sideMessageHistory,
+    })
+});
+
+server.post("/messaging/side", function (req, res) {
+    sideMessageHistory.push(req.body.message)
+    res.send(sideMessageHistory)
 });
 
 server.get("/game", function (req, res) {
