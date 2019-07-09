@@ -79,6 +79,7 @@ server.get("/game", function (req, res) {
 });
 
 server.post("/game/login", function (req, res) {
+    console.log("logging in new character")
     newPlayer = {
         name: req.body.username,
         position: {
@@ -88,15 +89,18 @@ server.post("/game/login", function (req, res) {
         color: "red"
     }
     characters.push(newPlayer)
+    console.log(newPlayer)
     res.send({ name: newPlayer.name })
 });
 
-server.post("/game/:user", function (req, res) {
+server.post("/game", function (req, res) {
     var player
     characters.forEach(char => {
-        if (char.name == req.params.user)
+        if (char.name == req.body.user)
             player = char
     });
+
+    console.log(player)
 
     if (req.body.move == "left") {
         player.position.x -= 10
@@ -120,18 +124,6 @@ server.post("/game/messaging", function (req, res) {
     gameMessageHistory.push(req.body.message)
     res.send(gameMessageHistory)
 });
-
-server.delete("/game/:user", function (req, res) {
-    console.log("deleted ", req.params.user)
-    var player
-    users.forEach(user => {
-        if (user.id == req.params.user)
-            player = user
-    });
-    var index = users.indexOf(player)
-    users.splice(index, 1)
-    res.send()
-})
 
 server.listen(port, function () {
     console.log("Listening on " + port);
