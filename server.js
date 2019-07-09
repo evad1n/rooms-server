@@ -21,7 +21,33 @@ var sideMessageHistory = []
 // GAME
 var gameMessageHistory = []
 var characters = []
-var characterCount = 0
+
+
+//check usernames
+server.get("/users", function (req, res) {
+    res.send({
+        users: users
+    })
+})
+
+//add username
+server.post("/users", function (req, res) {
+    users.push(req.body.username)
+    console.log(req.body.username)
+    res.send(users)
+})
+
+server.delete("/:user", function (req, res) {
+    console.log("deleted ", req.params.user)
+    var tmp
+    users.forEach(user => {
+        if (user.id == req.params.user)
+            tmp = user
+    });
+    var index = users.indexOf(tmp)
+    users.splice(index, 1)
+    res.send()
+})
 
 //normal functions :)
 server.get("/messaging/main", function (req, res) {
@@ -48,37 +74,31 @@ server.post("/messaging/side", function (req, res) {
 
 server.get("/game", function (req, res) {
     res.send({
-        history: gameMessageHistory,
         characters: characters
     })
 });
 
 server.post("/game/login", function (req, res) {
     newPlayer = {
-        id: characterCount,
+        name: req.body.username,
         position: {
             "x": 250,
             "y": 250
         },
         color: "red"
     }
-    console.log(newPlayer.id)
-    characterCount++
-    console.log(newPlayer.id)
-    characters.push(newPlayer)    
-    res.send({
-        id: newPlayer.id
-    })
+    characters.push(newPlayer)
+    res.send({ name: newPlayer.name })
 });
 
-server.post("/game/:id", function (req, res) {
+server.post("/game/:user", function (req, res) {
     var player
-    characters.forEach(el => {
-        if (el.id == req.params.id)
-            player = el
+    characters.forEach(char => {
+        if (char.name == req.params.user)
+            player = char
     });
 
-    if(req.body.move == "left"){
+    if (req.body.move == "left") {
         player.position.x -= 10
     } else if (req.body.move == "right") {
         player.position.x += 10
@@ -90,25 +110,26 @@ server.post("/game/:id", function (req, res) {
     res.send(player.position)
 });
 
-server.post("/game/messages/:id", function (req, res) {
+server.get("/game/messaging", function (req, res) {
+    res.send({
+        history: gameMessageHistory,
+    })
+});
+
+server.post("/game/messaging", function (req, res) {
     gameMessageHistory.push(req.body.message)
     res.send(gameMessageHistory)
 });
 
-server.post("/game/color/:id", function (req, res) {
-    gameMessageHistory.push(req.body.message)
-    res.send(gameMessageHistory)
-});
-
-server.delete("/game/:id", function (req, res) {
-    console.log("deleted")
+server.delete("/game/:user", function (req, res) {
+    console.log("deleted ", req.params.user)
     var player
-    characters.forEach(el => {
-        if (el.id == req.params.id)
-            player = el
+    users.forEach(user => {
+        if (user.id == req.params.user)
+            player = user
     });
-    var index = characters.indexOf(player)
-    characters.splice(index, 1)
+    var index = users.indexOf(player)
+    users.splice(index, 1)
     res.send()
 })
 
