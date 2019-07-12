@@ -82,10 +82,12 @@ server.put("/:room/invite", function(req, res) {
     if(req.body.accepted) {
         rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " has joined "})
     } else {
-        var index = globalUsers[req.body.user].invites.indexOf(req.params.room)
         rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " declined the invitation from " + req.body.from})
-        globalUsers[req.body.user].invites.splice(index, 1)
     }
+    //remove invite from user
+    var index = globalUsers[req.body.user].invites.indexOf(req.params.room)
+    globalUsers[req.body.user].invites.splice(index, 1)
+
     res.send()
 })
 
