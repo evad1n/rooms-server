@@ -24,64 +24,79 @@ rooms["home"] = {
 // LIST OF ALL USERS
 var globalUsers = []
 
+// USER TIMEOUT IN MILLISECONDS
+const TIMEOUT = 5000
+
+// TIMEOUT CHECKING
+setInterval(() => {
+    //loop through users and see if they should be timed out
+    var deletedUsers = []
+    var currentTime = new Date()
+    Object.keys(globalUsers).forEach(user => {
+        if(currentTime.getTime() - globalUsers[user].timeout.getTime() > TIMEOUT) {
+            deletedUsers.push(user)
+        }
+    });
+
+    //Remove users from last room they were in
+    deletedUsers.forEach(user => {
+        var room = globalUsers[user].room
+        var index = rooms[room].users.indexOf(user)
+        rooms[room].users.splice(index, 1)
+        console.log(user, " has left room " + room + " due to timeout")
+    });
+
+    //Delete users from globalUsers
+    deletedUsers.forEach(user => {
+        console.log(user, " has logged off")
+        delete globalUsers[user];
+    });
+}, TIMEOUT);
+
 // START SERVER
 server.listen(port, function () {
     console.log("Listening on " + port);
 })
 
-// CHECK USERNAME
+// GETS ALL USERNAMES
 server.get("/users", function (req, res) {
     res.send({
         users: Object.keys(globalUsers)
     })
 })
 
-// ADD USERNAME
+// ADD USER
 server.post("/users", function (req, res) {
-    globalUsers[req.body.username] = {invites: []}
-    console.log(req.body.username + " has logged in")
+    globalUsers[req.body.user] = { invites: [], room: "home", timeout: new Date() }
+    console.log(req.body.user + " has logged in")
     res.send()
 })
 
-// DOESN'T WORK IF SERVER TAKES TOO LONG
-// DELETE USER WHEN PAGE CLOSED
+// REFRESH USER TIMEOUT
 server.put("/users", function (req, res) {
-    //remove user from last room they were in
-    var index = rooms[req.body.room].users.indexOf(req.body.user)
-    rooms[req.body.room].users.splice(index, 1)
-    //rooms[req.body.room].messageHistory.push({user: "Global", text: req.body.user + " has logged off"})
-    console.log(req.body.user + " has left " + req.body.room)
-
-    //remove user from globalUsers and log them off
-    console.log(req.body.user + " has logged off")
-    var tmp
-    Object.keys(globalUsers).forEach(user => {
-        if (user == req.body.user)
-            tmp = user
-    });
-    delete globalUsers[tmp];
+    globalUsers[req.body.user].timeout = new Date()
     res.send()
 })
 
 // GET INVITES FOR USER
-server.get("/invites/:username", function (req, res) {
-    res.send({invites: globalUsers[req.params.username].invites})
+server.get("/invites/:user", function (req, res) {
+    res.send({ invites: globalUsers[req.params.user].invites })
 })
 
 // SEND INVITE TO USER
-server.post("/invites/:username", function (req, res) {
-    console.log("invited " + req.params.username + " to " + req.body.room + " from user " + req.body.from)
-    globalUsers[req.params.username].invites.push(req.body.room)
-    rooms[req.body.room].messageHistory.push({user: "Global", text: req.body.from + " invited " + req.params.username})
+server.post("/invites/:user", function (req, res) {
+    console.log("invited " + req.params.user + " to " + req.body.room + " from user " + req.body.from)
+    globalUsers[req.params.user].invites.push(req.body.room)
+    rooms[req.body.room].messageHistory.push({ user: "Global", text: req.body.from + " invited " + req.params.user })
     res.send()
 })
 
 // USER ACCEPTS INVITE TO PRIVATE ROOM
-server.put("/:room/invite", function(req, res) {
-    if(req.body.accepted) {
-        rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " has joined "})
+server.put("/:room/invite", function (req, res) {
+    if (req.body.accepted) {
+        rooms[req.params.room].messageHistory.push({ user: "Global", text: req.body.user + " has joined " })
     } else {
-        rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " declined the invitation from " + req.body.from})
+        rooms[req.params.room].messageHistory.push({ user: "Global", text: req.body.user + " declined the invitation from " + req.body.from })
     }
     //remove invite from user
     var index = globalUsers[req.body.user].invites.indexOf(req.params.room)
@@ -92,7 +107,7 @@ server.put("/:room/invite", function(req, res) {
 
 // GET MESSAGES FROM ROOM
 server.get("/:room/messaging", function (req, res) {
-    if(!rooms[req.params.room]){
+    if (!rooms[req.params.room]) {
         rooms[req.params.room] = {
             users: [],
             messageHistory: [],
@@ -103,19 +118,19 @@ server.get("/:room/messaging", function (req, res) {
 
 // SEND MESSAGE TO ROOM
 server.post("/:room/messaging", function (req, res) {
-    if(!rooms[req.params.room]){
+    if (!rooms[req.params.room]) {
         rooms[req.params.room] = {
             users: [],
             messageHistory: [],
         }
     }
     rooms[req.params.room].messageHistory.push(req.body.message)
-    res.send( rooms[req.params.room].messageHistory)
+    res.send(rooms[req.params.room].messageHistory)
 });
 
 // GET ALL USERS IN ROOM
 server.get("/:room/users", function (req, res) {
-    if(!rooms[req.params.room]){
+    if (!rooms[req.params.room]) {
         rooms[req.params.room] = {
             users: [],
             messageHistory: [],
@@ -126,14 +141,37 @@ server.get("/:room/users", function (req, res) {
 
 // ADD USER TO ROOM
 server.post("/:room/users", function (req, res) {
-    if(!rooms[req.params.room]){
-        rooms[req.params.room] = {
+    // IF ROOM DOES NOT EXIST YET
+    if (!rooms[req.params.room]) {
+        // GET ROOM TYPE
+        var roomType = getRoomType(req.params.room)
+
+        // ALL ROOMS WILL HAVE THIS DATA
+        var data = {
             users: [],
             messageHistory: [],
         }
+        // SPECIFIC GAME TYPE DATA
+        switch (roomType) {
+            // NO OTHER FIELDS NECESSARY
+            case 'privateMessaging':
+                break;
+
+            case 'pictionary':
+                data.turn = 0
+                data.canvas = {}
+                data.points = {}
+                break;
+
+            default:
+                break;
+        }
+
+        // SET UP ROOM WITH CORRECT DATA
+        rooms[req.params.room] = data
     }
     rooms[req.params.room].users.push(req.body.user)
-    console.log(req.body.user + " has joined " + req.params.room)
+    globalUsers[req.body.user].room = req.params.room
     res.send(rooms[req.params.room].users)
 })
 
@@ -141,31 +179,59 @@ server.post("/:room/users", function (req, res) {
 server.put('/:room/users', function (req, res) {
     var index = rooms[req.params.room].users.indexOf(req.body.user)
     rooms[req.params.room].users.splice(index, 1)
-    console.log(req.body.user + " has left " + req.params.room)
     res.send(rooms[req.params.room].users)
 })
 
 
+// ########################## GAME STUFF ##################################
 
 // GET GAME INFO
 server.get("/:room/game", function (req, res) {
-    res.send({
-        characters: characters
-    })
+    // GET ROOM TYPE
+    var roomType = getRoomType(req.params.room)
+
+    var data = rooms[req.params.room]
+
+    // SPECIFIC GAME TYPE DATA
+    switch (roomType) {
+        case 'pictionary':
+            data = {context: data.context, points: data.points}
+            break;
+
+        default:
+            data = { message: "not a real game" }
+            break;
+    }
+    console.log(data)
+    res.send(data)
 });
 
 // SEND GAME INFO
 server.post("/:room/game", function (req, res) {
-    res.send({
-        characters: characters
-    })
+    // GET ROOM TYPE
+    var roomType = getRoomType(req.params.room)
+
+    // SPECIFIC GAME TYPE DATA
+    switch (roomType) {
+        case 'pictionary':
+            rooms[req.params.room].context = req.body.context
+            rooms[req.params.room].points = req.body.points
+            break;
+
+        default:
+            data = { message: "not a real game" }
+            break;
+    }
+    console.log(req.body)
+
+    res.send()
 });
 
 // INITIALIZE GAME
 server.post("/:room/game/login", function (req, res) {
     console.log("logging in new character")
     newPlayer = {
-        name: req.body.username,
+        name: req.body.user,
         position: {
             "x": 250,
             "y": 250
@@ -176,3 +242,13 @@ server.post("/:room/game/login", function (req, res) {
     console.log(newPlayer)
     res.send({ name: newPlayer.name })
 });
+
+
+
+// ###################### HELPER FUNCTIONS ###################
+
+function getRoomType(room) {
+    var index = room.indexOf("-")
+    var roomType = room.substring(index + 1, room.length)
+    return roomType
+}
