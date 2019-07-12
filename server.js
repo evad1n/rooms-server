@@ -15,7 +15,7 @@ server.use(express.urlencoded({ extended: false }));
 // array of rooms, each room is an object containing array of users, array of messageHistory, and specific room data
 var rooms = []
 // do this for each public room
-rooms["main"] = {
+rooms["home"] = {
     users: [],
     messageHistory: [],
 }
@@ -50,6 +50,7 @@ server.put("/users", function (req, res) {
     //remove user from last room they were in
     var index = rooms[req.body.room].users.indexOf(req.body.user)
     rooms[req.body.room].users.splice(index, 1)
+    //rooms[req.body.room].messageHistory.push({user: "Global", text: req.body.user + " has logged off"})
     console.log(req.body.user + " has left " + req.body.room)
 
     //remove user from globalUsers and log them off
@@ -76,19 +77,16 @@ server.post("/invites/:username", function (req, res) {
     res.send()
 })
 
-//delete invite
-server.delete("/invites/:username", function (req, res) {
-    var index = globalUsers[req.params.username].invites.indexOf(req.body.room)
-    rooms[req.body.room].messageHistory.push({user: "Global", text: req.params.username + " declined the invitation from " + req.body.from})
-    globalUsers[req.params.username].invites.splice(index, 1)
-    res.send()
-})
-
 //user accepts invite to private room
 server.put("/:room/invite", function(req, res) {
-    console.log(req.body.user + " accepted " + req.body.from + "'s invitation to " + req.params.room)
-    rooms[req.params.room].users.push(req.body.user)
-    rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " joined "})
+    if(req.body.accepted) {
+        rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " has joined "})
+    } else {
+        var index = globalUsers[req.body.user].invites.indexOf(req.params.room)
+        rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " declined the invitation from " + req.body.from})
+        globalUsers[req.body.user].invites.splice(index, 1)
+    }
+    res.send()
 })
 
 //global messaging that goes to room based on parameter
