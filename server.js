@@ -12,40 +12,39 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
 // Global session info
-// array of rooms, each room is an object containing array of users, array of messageHistory, and specific room data
+// Array of rooms, each room is an object containing array of users, array of messageHistory, and optional specific room data
 var rooms = []
-// do this for each public room
+
+// Do this for each public room
 rooms["home"] = {
     users: [],
     messageHistory: [],
 }
-rooms["game"] = {
-    users: [],
-    messageHistory: [],
-    characters: []
-}
+
+// LIST OF ALL USERS
 var globalUsers = []
 
-//start server
+// START SERVER
 server.listen(port, function () {
     console.log("Listening on " + port);
 })
 
-//check usernames
+// CHECK USERNAME
 server.get("/users", function (req, res) {
     res.send({
         users: Object.keys(globalUsers)
     })
 })
 
-//add username
+// ADD USERNAME
 server.post("/users", function (req, res) {
     globalUsers[req.body.username] = {invites: []}
     console.log(req.body.username + " has logged in")
     res.send()
 })
 
-//delete user when page is closed
+// DOESN'T WORK IF SERVER TAKES TOO LONG
+// DELETE USER WHEN PAGE CLOSED
 server.put("/users", function (req, res) {
     //remove user from last room they were in
     var index = rooms[req.body.room].users.indexOf(req.body.user)
@@ -64,12 +63,12 @@ server.put("/users", function (req, res) {
     res.send()
 })
 
-//get invites
+// GET INVITES FOR USER
 server.get("/invites/:username", function (req, res) {
     res.send({invites: globalUsers[req.params.username].invites})
 })
 
-//send invite
+// SEND INVITE TO USER
 server.post("/invites/:username", function (req, res) {
     console.log("invited " + req.params.username + " to " + req.body.room + " from user " + req.body.from)
     globalUsers[req.params.username].invites.push(req.body.room)
@@ -77,7 +76,7 @@ server.post("/invites/:username", function (req, res) {
     res.send()
 })
 
-//user accepts invite to private room
+// USER ACCEPTS INVITE TO PRIVATE ROOM
 server.put("/:room/invite", function(req, res) {
     if(req.body.accepted) {
         rooms[req.params.room].messageHistory.push({user: "Global", text: req.body.user + " has joined "})
@@ -91,7 +90,7 @@ server.put("/:room/invite", function(req, res) {
     res.send()
 })
 
-//global messaging that goes to room based on parameter
+// GET MESSAGES FROM ROOM
 server.get("/:room/messaging", function (req, res) {
     if(!rooms[req.params.room]){
         rooms[req.params.room] = {
@@ -102,6 +101,7 @@ server.get("/:room/messaging", function (req, res) {
     res.send({ history: rooms[req.params.room].messageHistory, users: rooms[req.params.room].users })
 });
 
+// SEND MESSAGE TO ROOM
 server.post("/:room/messaging", function (req, res) {
     if(!rooms[req.params.room]){
         rooms[req.params.room] = {
@@ -113,7 +113,7 @@ server.post("/:room/messaging", function (req, res) {
     res.send( rooms[req.params.room].messageHistory)
 });
 
-// get all users in room
+// GET ALL USERS IN ROOM
 server.get("/:room/users", function (req, res) {
     if(!rooms[req.params.room]){
         rooms[req.params.room] = {
@@ -124,7 +124,7 @@ server.get("/:room/users", function (req, res) {
     res.send(rooms[req.params.room].users)
 })
 
-// add user to room
+// ADD USER TO ROOM
 server.post("/:room/users", function (req, res) {
     if(!rooms[req.params.room]){
         rooms[req.params.room] = {
@@ -137,7 +137,7 @@ server.post("/:room/users", function (req, res) {
     res.send(rooms[req.params.room].users)
 })
 
-// remove user from room
+// REMOVE USER FROM ROOM
 server.put('/:room/users', function (req, res) {
     var index = rooms[req.params.room].users.indexOf(req.body.user)
     rooms[req.params.room].users.splice(index, 1)
@@ -145,13 +145,24 @@ server.put('/:room/users', function (req, res) {
     res.send(rooms[req.params.room].users)
 })
 
-server.get("/game", function (req, res) {
+
+
+// GET GAME INFO
+server.get("/:room/game", function (req, res) {
     res.send({
         characters: characters
     })
 });
 
-server.post("/game/login", function (req, res) {
+// SEND GAME INFO
+server.post("/:room/game", function (req, res) {
+    res.send({
+        characters: characters
+    })
+});
+
+// INITIALIZE GAME
+server.post("/:room/game/login", function (req, res) {
     console.log("logging in new character")
     newPlayer = {
         name: req.body.username,
@@ -164,25 +175,4 @@ server.post("/game/login", function (req, res) {
     characters.push(newPlayer)
     console.log(newPlayer)
     res.send({ name: newPlayer.name })
-});
-
-server.post("/game", function (req, res) {
-    var player
-    characters.forEach(char => {
-        if (char.name == req.body.user)
-            player = char
-    });
-
-    console.log(player)
-
-    if (req.body.move == "left") {
-        player.position.x -= 10
-    } else if (req.body.move == "right") {
-        player.position.x += 10
-    } else if (req.body.move == "up") {
-        player.position.y -= 10
-    } else if (req.body.move == "down") {
-        player.position.y += 10
-    }
-    res.send(player.position)
 });
