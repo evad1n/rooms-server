@@ -177,6 +177,8 @@ server.post("/:room/game", function (req, res) {
     // SET DATA
     rooms[req.params.room] = req.body.data
 
+    var room = rooms[req.params.room]
+
     // GET ROOM TYPE
     var roomType = getRoomType(req.params.room)
 
@@ -187,25 +189,28 @@ server.post("/:room/game", function (req, res) {
             break;
 
         case 'tictactoe':
-            // check for winner
-            if (rooms[req.params.room].winner == "none") {
-                console.log(isWin(rooms[req.params.room].tiles))
-                rooms[req.params.room].winner = isWin(rooms[req.params.room].tiles)
-                if (rooms[req.params.room].winner == "X" || rooms[req.params.room].winner == "O") {
-                    // set winner to last user
-                    rooms[req.params.room].winner = rooms[req.params.room].turn.user
-                    console.log(rooms[req.params.room].winner)
+
+            if (room.started) {
+                // check for winner
+                if (room.winner == "none") {
+                    console.log(isWin(room.tiles))
+                    room.winner = isWin(room.tiles)
+                    if (room.winner == "X" || room.winner == "O") {
+                        // set winner to last user
+                        room.winner = room.turn.user
+                        room.players[room.winner].score++
+                    }
                 }
-            }
 
-            // if game still isn't over after check
-            if (rooms[req.params.room].winner == "none") {
-                // next turn
-                rooms[req.params.room].turn.turn++
-                rooms[req.params.room].turn.turn %= rooms[req.params.room].maxPlayers
-                rooms[req.params.room].turn.user = Object.keys(rooms[req.params.room].players)[rooms[req.params.room].turn.turn]
-            }
+                // if game still isn't over after check
+                if (room.winner == "none") {
+                    // next turn
+                    room.turn.turn++
+                    room.turn.turn %= room.maxPlayers
+                    room.turn.user = Object.keys(room.players)[room.turn.turn]
+                }
 
+            }
             break;
 
         default:
@@ -250,6 +255,7 @@ function createRoom(room) {
 
         case 'tictactoe':
             data.maxPlayers = 2
+            data.first = 0
             data.started = false
             data.players = {}
             data.tiles = [
