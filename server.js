@@ -13,7 +13,7 @@ server.use(express.urlencoded({ extended: false }));
 
 // Global session info
 // Array of rooms, each room is an object containing array of users, array of messageHistory, and optional specific room data
-var rooms = []
+var rooms = {}
 
 // Do this for each public room
 rooms["home"] = {
@@ -22,7 +22,7 @@ rooms["home"] = {
 }
 
 // LIST OF ALL USERS
-var globalUsers = []
+var globalUsers = {}
 
 // USER TIMEOUT IN MILLISECONDS
 const TIMEOUT = 5000
@@ -33,7 +33,7 @@ setInterval(() => {
     var deletedUsers = []
     var currentTime = new Date()
     Object.keys(globalUsers).forEach(user => {
-        if(currentTime.getTime() - globalUsers[user].timeout.getTime() > TIMEOUT) {
+        if (currentTime.getTime() - globalUsers[user].timeout.getTime() > TIMEOUT) {
             deletedUsers.push(user)
         }
     });
@@ -43,12 +43,10 @@ setInterval(() => {
         var room = globalUsers[user].room
         var index = rooms[room].users.indexOf(user)
         rooms[room].users.splice(index, 1)
-        console.log(user, " has left room " + room + " due to timeout")
     });
 
     //Delete users from globalUsers
     deletedUsers.forEach(user => {
-        console.log(user, " has logged off")
         delete globalUsers[user];
     });
 }, TIMEOUT);
@@ -68,7 +66,6 @@ server.get("/users", function (req, res) {
 // ADD USER
 server.post("/users", function (req, res) {
     globalUsers[req.body.user] = { invites: [], room: "home", timeout: new Date() }
-    console.log(req.body.user + " has logged in")
     res.send()
 })
 
@@ -85,9 +82,12 @@ server.get("/invites/:user", function (req, res) {
 
 // SEND INVITE TO USER
 server.post("/invites/:user", function (req, res) {
-    console.log("invited " + req.params.user + " to " + req.body.room + " from user " + req.body.from)
-    globalUsers[req.params.user].invites.push(req.body.room)
-    rooms[req.body.room].messageHistory.push({ user: "Global", text: req.body.from + " invited " + req.params.user })
+    if (globalUsers[req.params.user].invites.includes(req.body.room)) {
+        rooms[req.body.room].messageHistory.push({ user: "Global", text: req.params.user + " has already been invited" })
+    } else {
+        globalUsers[req.params.user].invites.push(req.body.room)
+        rooms[req.body.room].messageHistory.push({ user: "Global", text: req.body.from + " invited " + req.params.user })
+    }
     res.send()
 })
 
@@ -105,25 +105,13 @@ server.put("/:room/invite", function (req, res) {
     res.send()
 })
 
-// GET MESSAGES FROM ROOM
-server.get("/:room/messaging", function (req, res) {
-    if (!rooms[req.params.room]) {
-        rooms[req.params.room] = {
-            users: [],
-            messageHistory: [],
-        }
-    }
-    res.send({ history: rooms[req.params.room].messageHistory, users: rooms[req.params.room].users })
-});
+// GET ROOM DATA
+server.get("/:room/data", function (req, res) {
+    res.send({ data: rooms[req.params.room] })
+})
 
 // SEND MESSAGE TO ROOM
 server.post("/:room/messaging", function (req, res) {
-    if (!rooms[req.params.room]) {
-        rooms[req.params.room] = {
-            users: [],
-            messageHistory: [],
-        }
-    }
     rooms[req.params.room].messageHistory.push(req.body.message)
     res.send(rooms[req.params.room].messageHistory)
 });
@@ -139,36 +127,11 @@ server.get("/:room/users", function (req, res) {
     res.send(rooms[req.params.room].users)
 })
 
-// ADD USER TO ROOM
+// ADD USER TO ROOM AND CREATE ROOM
 server.post("/:room/users", function (req, res) {
     // IF ROOM DOES NOT EXIST YET
     if (!rooms[req.params.room]) {
-        // GET ROOM TYPE
-        var roomType = getRoomType(req.params.room)
-
-        // ALL ROOMS WILL HAVE THIS DATA
-        var data = {
-            users: [],
-            messageHistory: [],
-        }
-        // SPECIFIC GAME TYPE DATA
-        switch (roomType) {
-            // NO OTHER FIELDS NECESSARY
-            case 'privateMessaging':
-                break;
-
-            case 'pictionary':
-                data.turn = 0
-                data.canvas = {}
-                data.points = {}
-                break;
-
-            default:
-                break;
-        }
-
-        // SET UP ROOM WITH CORRECT DATA
-        rooms[req.params.room] = data
+        createRoom(req.params.room)
     }
     rooms[req.params.room].users.push(req.body.user)
     globalUsers[req.body.user].room = req.params.room
@@ -179,68 +142,78 @@ server.post("/:room/users", function (req, res) {
 server.put('/:room/users', function (req, res) {
     var index = rooms[req.params.room].users.indexOf(req.body.user)
     rooms[req.params.room].users.splice(index, 1)
-    res.send(rooms[req.params.room].users)
+    res.send()
 })
 
+// DELETE ROOM
+server.delete('/:room/users', function (req, res) {
+    delete rooms[req.params.room]
+    res.send()
+})
 
 // ########################## GAME STUFF ##################################
 
-// GET GAME INFO
-server.get("/:room/game", function (req, res) {
-    // GET ROOM TYPE
-    var roomType = getRoomType(req.params.room)
-
-    var data = rooms[req.params.room]
-
-    // SPECIFIC GAME TYPE DATA
-    switch (roomType) {
-        case 'pictionary':
-            data = {context: data.context, points: data.points}
-            break;
-
-        default:
-            data = { message: "not a real game" }
-            break;
+// READY UP
+server.post("/:room/game/ready", function (req, res) {
+    // Set first turn to first player to ready up
+    if (Object.keys(rooms[req.params.room].players).length == 0) {
+        rooms[req.params.room].turn.user = req.body.user
     }
-    console.log(data)
-    res.send(data)
-});
 
-// SEND GAME INFO
-server.post("/:room/game", function (req, res) {
-    // GET ROOM TYPE
-    var roomType = getRoomType(req.params.room)
-
-    // SPECIFIC GAME TYPE DATA
-    switch (roomType) {
-        case 'pictionary':
-            rooms[req.params.room].context = req.body.context
-            rooms[req.params.room].points = req.body.points
-            break;
-
-        default:
-            data = { message: "not a real game" }
-            break;
-    }
-    console.log(req.body)
+    // Add player to game info
+    rooms[req.params.room].players[req.body.user] = { score: 0 }
 
     res.send()
 });
 
 // INITIALIZE GAME
-server.post("/:room/game/login", function (req, res) {
-    console.log("logging in new character")
-    newPlayer = {
-        name: req.body.user,
-        position: {
-            "x": 250,
-            "y": 250
-        },
-        color: req.body.color
+server.post("/:room/game/start", function (req, res) {
+    rooms[req.params.room].started = true
+    res.send()
+});
+
+// SEND GAME INFO
+server.post("/:room/game", function (req, res) {
+    // SET DATA
+    rooms[req.params.room] = req.body.data
+
+    // GET ROOM TYPE
+    var roomType = getRoomType(req.params.room)
+
+    // SPECIFIC GAME TYPE DATA
+    switch (roomType) {
+        case 'pictionary':
+            // pictionary specific logic
+            break;
+
+        case 'tictactoe':
+            // check for winner
+            if (rooms[req.params.room].winner == "none") {
+                console.log(isWin(rooms[req.params.room].tiles))
+                rooms[req.params.room].winner = isWin(rooms[req.params.room].tiles)
+                if (rooms[req.params.room].winner == "X" || rooms[req.params.room].winner == "O") {
+                    // set winner to last user
+                    rooms[req.params.room].winner = rooms[req.params.room].turn.user
+                    console.log(rooms[req.params.room].winner)
+                }
+            }
+
+            // if game still isn't over after check
+            if (rooms[req.params.room].winner == "none") {
+                // next turn
+                rooms[req.params.room].turn.turn++
+                rooms[req.params.room].turn.turn %= rooms[req.params.room].maxPlayers
+                rooms[req.params.room].turn.user = Object.keys(rooms[req.params.room].players)[rooms[req.params.room].turn.turn]
+            }
+
+            break;
+
+        default:
+            data = { message: "not a real game" }
+            break;
     }
-    characters.push(newPlayer)
-    console.log(newPlayer)
-    res.send({ name: newPlayer.name })
+
+    res.send()
 });
 
 
@@ -251,4 +224,92 @@ function getRoomType(room) {
     var index = room.indexOf("-")
     var roomType = room.substring(index + 1, room.length)
     return roomType
+}
+
+function createRoom(room) {
+    // GET ROOM TYPE
+    var roomType = getRoomType(room)
+
+    // ALL ROOMS WILL HAVE THIS DATA
+    var data = {
+        users: [],
+        messageHistory: [],
+    }
+    // SPECIFIC GAME TYPE DATA
+    switch (roomType) {
+        // NO OTHER FIELDS NECESSARY
+        case 'privateMessaging':
+            break;
+
+        case 'pictionary':
+            data.turn = 0
+            data.canvas = {}
+            data.points = {}
+            data.started = false
+            break;
+
+        case 'tictactoe':
+            data.maxPlayers = 2
+            data.started = false
+            data.players = {}
+            data.tiles = [
+                "", "", "",
+                "", "", "",
+                "", "", "",
+            ]
+            data.turn = { user: "", turn: 0 }
+            data.winner = "none"
+
+        default:
+            break;
+    }
+
+    // SET UP ROOM WITH CORRECT DATA
+    rooms[room] = data
+}
+
+
+// TIC TAC TOE
+//Possible 3 in a row combinations
+var winSet = [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9],
+
+    [1, 5, 9],
+    [7, 5, 3],
+
+    [1, 4, 7],
+    [2, 5, 8],
+    [3, 6, 9]
+]
+
+//Check win condition
+function isWin(tiles) {
+    var xTiles = [];
+    var oTiles = [];
+
+    tiles.forEach(function (tile, i) {
+        if (tile == "X") {
+            xTiles.push(i + 1);
+        }
+        else if (tile == "O") {
+            oTiles.push(i + 1);
+        }
+    });
+
+    for (var i = 0; i < winSet.length; i++) {
+        if (xTiles.includes(winSet[i][0]) && xTiles.includes(winSet[i][1]) && xTiles.includes(winSet[i][2])) {
+            return "X";
+        }
+
+        if (oTiles.includes(winSet[i][0]) && oTiles.includes(winSet[i][1]) && oTiles.includes(winSet[i][2])) {
+            return "O";
+        }
+    }
+
+    if (xTiles.length + oTiles.length >= 9)
+        return "tie";
+
+    return "none";
 }
