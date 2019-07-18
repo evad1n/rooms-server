@@ -25,7 +25,7 @@ rooms["home"] = {
 var globalUsers = {}
 
 // USER TIMEOUT IN MILLISECONDS
-const TIMEOUT = 5000
+const TIMEOUT = 3000
 
 // TIMEOUT CHECKING
 setInterval(() => {
@@ -116,17 +116,6 @@ server.post("/:room/messaging", function (req, res) {
     res.send(rooms[req.params.room].messageHistory)
 });
 
-// GET ALL USERS IN ROOM
-server.get("/:room/users", function (req, res) {
-    if (!rooms[req.params.room]) {
-        rooms[req.params.room] = {
-            users: [],
-            messageHistory: [],
-        }
-    }
-    res.send(rooms[req.params.room].users)
-})
-
 // ADD USER TO ROOM AND CREATE ROOM
 server.post("/:room/users", function (req, res) {
     // IF ROOM DOES NOT EXIST YET
@@ -141,7 +130,9 @@ server.post("/:room/users", function (req, res) {
 // REMOVE USER FROM ROOM
 server.put('/:room/users', function (req, res) {
     var index = rooms[req.params.room].users.indexOf(req.body.user)
-    rooms[req.params.room].users.splice(index, 1)
+    if (index != -1) {
+        rooms[req.params.room].users.splice(index, 1)
+    }
     res.send()
 })
 
