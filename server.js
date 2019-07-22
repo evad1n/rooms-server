@@ -30,6 +30,17 @@ rooms["home"] = {
 }
 rooms["singularity"] = {
     users: [],
+    galaxies: [
+        {
+            name: "",
+            type: "",
+            position: { x: 0, y: 0, z: 0 },
+            extent: null,
+            asteroids: [],
+            systems: [],
+            nebulas: []
+        }
+    ],
     messageHistory: [],
     //stuff
 }
@@ -390,4 +401,141 @@ function isWin(tiles) {
         return "tie";
 
     return "none";
+}
+
+//SINGULARITY
+
+/*server.post("/:room/singularity", function (req, res) {
+    rooms[req.params.room].users.push(req.body);
+    var response = compileObjectsInRadius(req.body);
+    res.send(response);
+});*/
+
+var findDistance = function (main, other) {
+    var dx = main.position.x - other.position.x;
+    var dy = main.position.y - other.position.y;
+    var dz = main.position.z - other.position.z;
+    var distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    return distance;
+};
+
+//GAME CREATION FUNCTIONS
+var generateAsteroids = function (location) {
+    location.asteroids = [];
+    for (var i = 0; i < location.amount / 3; i++) {
+        var radius = Math.floor(Math.sqrt(location.amount));
+        var amount = Math.floor(location.amount / (location.amount / 3) * (Math.random() * 2)) + 1;
+
+        var position = {
+            x: location.position.x + ((Math.random() * radius) - (Math.random() * radius)),
+            y: location.position.y + ((Math.random() * radius) - (Math.random() * radius)),
+            z: location.position.z + ((Math.random() * radius) - (Math.random() * radius))
+        };
+
+        var asteroid = {
+            amount: amount,
+            position: position,
+            alive: true
+        };
+        location.asteroids.push(asteroid);
+    }
+}
+
+var generateLocation = function (galaxy) {
+    //RANDOMLY GET TYPE OF STELLAR BODY
+    var typeNum = Math.floor(Math.random() * 10);
+    if (typeNum < 7) {
+        type = "asteroid field";
+    } else if (typeNum == 7) {
+        type = "nebula";
+    } else if (typeNum >= 8) {
+        type = "system"
+    }
+
+    //RANDOMLY GET AMOUNT OF MASS
+    var amount = Math.floor(Math.random() * 1000);
+
+    //RANDOMLY GET LOCATION OF STELLAR BODY
+    var locationPosition = {
+        x: Math.floor((Math.random() * galaxy.extent) - (Math.random() * galaxy.extent)),
+        y: Math.floor((Math.random() * galaxy.extent) - (Math.random() * galaxy.extent)),
+        z: Math.floor((Math.random() * galaxy.extent) - (Math.random() * galaxy.extent))
+    };
+
+    var location = {
+        name: "",
+        type: type,
+        amount: amount,
+        position: locationPosition
+    };
+
+    return location;
+}
+
+var generateLocations = function (number_of_locations, galaxy) {
+    if (galaxy.locations.length == 0) {
+        galaxy.locations.push(generateLocation(galaxy));
+    }
+    var new_locations = 0;
+    while (new_locations < number_of_locations) {
+        for (var l = 0; l < number_of_locations; l++) {
+            var pass_location = 0;
+            while (pass_location != galaxy.locations.length) {
+                var new_location = generateLocation(galaxy);
+                galaxy.locations.forEach(function (location) {
+                    var distance = findDistance(new_location, location);
+                    if (distance > (new_location.amount / 3) * 1.1) {
+                        pass_location += 1;
+                    } else {
+                        console.log('mission-failure');
+                    }
+                })
+            }
+            if (new_location.type == "asteroid field") {
+                generateAsteroids(new_location);
+                galaxy.asteroids.push(new_location);
+            } else if (new_location.type == "system") {
+                //generateSystem(new_location);
+                galaxy.systems.push(new_location);
+            } else if (new_location.type == "nebula") {
+                generateNebula(new_location);
+                galaxy.nebulas.push(new_location);
+            }
+            new_locations += 1;
+            console.log('success');
+        }
+    }
+}
+
+var generateGalaxy = function (galaxy) {
+    var typeNum = Math.floor(Math.random() * 3);
+    var galaxy_extent = 100000;
+    if (typeNum == 0) {
+        galaxy.type = "Generation A";
+    } else if (typeNum == 1) {
+        galaxy.type = "Generation B";
+    } else if (typeNum == 2) {
+        galaxy.type = "Generation C";
+    }
+    galaxy.extent = galaxy_extent;
+    galaxy.name = galaxy.type + " - Category " + Math.floor(Math.sqrt(galaxy.extent));
+    generateLocations(galaxy.extent / Math.cbrt(galaxy.extent), galaxy);
+}
+
+//PERFORMANCE FUNCTIONS
+var findObjectsInRadius = function (main, objects) {
+    var nearObjects = [];
+    objects.forEach(function (object) {
+        var userDistance = findDistance(main, object);
+        if (userDistance <= 2500) {
+            nearObjects.push(object);
+        }
+    })
+    return nearObjects;
+}
+
+var compileObjectsInRadius = function (player) {
+    var players = findObjectsInRadius(player, rooms.users);
+    var locations = findLocationsInRadius(player, rooms.locations);
+    return { players: players, locations: locations }
 }
