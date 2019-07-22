@@ -403,6 +403,7 @@ function isWin(tiles) {
     return "none";
 }
 
+
 //SINGULARITY
 
 /*server.post("/:room/singularity", function (req, res) {
