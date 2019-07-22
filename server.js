@@ -1,13 +1,21 @@
 // imports
 const express = require("express");
-const cors = require("cors");
 
 // Setup Server
 var server = express();
 var port = process.env.PORT || 3000;
 
 // Middleware
-server.use(cors());
+server.use(function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", req.get("origin"));
+    res.header("Access-Control-Allow-Credentials", "true");
+    next();
+});
+server.options("*", function(req, res, next) {
+    res.header("Access-Control-Allow-Headers", "Content-type");
+    next();
+});
+
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
@@ -62,6 +70,8 @@ setInterval(() => {
 server.listen(port, function () {
     console.log("Listening on " + port);
 })
+
+// -----------------------------------------------------------------------------=
 
 // GETS ALL USERS
 server.get("/users", function (req, res) {
@@ -295,8 +305,10 @@ function createRoom(room) {
             data.turn = { user: "", turn: 0 }
             data.winner = "none"
 
+            data.roundWinner = ""
             data.drawings = ["boat", "horse", "dinosaur", "crying children"]
-            data.points = []
+            data.lines = [];
+            data.drawing = false
 
             break;
 
