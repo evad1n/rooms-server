@@ -29,7 +29,12 @@ rooms["home"] = {
     messageHistory: [],
 }
 rooms["singularity"] = {
+    //GLOBAL
     users: [],
+    messageHistory: [],
+
+    //SINGULARITY
+    players: [],
     galaxies: [
         {
             name: "",
@@ -38,11 +43,10 @@ rooms["singularity"] = {
             extent: null,
             asteroids: [],
             systems: [],
-            nebulas: []
+            nebulas: [],
+            location_total: 0,
         }
     ],
-    messageHistory: [],
-    //stuff
 }
 
 // LIST OF ALL USERS
@@ -406,11 +410,14 @@ function isWin(tiles) {
 
 //SINGULARITY
 
-/*server.post("/:room/singularity", function (req, res) {
-    rooms[req.params.room].users.push(req.body);
-    var response = compileObjectsInRadius(req.body);
-    res.send(response);
-});*/
+server.post("/:room/update", function (req, res) {
+    rooms[req.params.room].players.push(req.body);
+    res.send();
+});
+
+server.get("/:room/visible/:username", function (req,res) {
+    var response = compileObjectsInRadius();
+});
 
 var findDistance = function (main, other) {
     var dx = main.position.x - other.position.x;
@@ -474,15 +481,12 @@ var generateLocation = function (galaxy) {
 }
 
 var generateLocations = function (number_of_locations, galaxy) {
-    if (galaxy.locations.length == 0) {
-        galaxy.locations.push(generateLocation(galaxy));
-    }
     var new_locations = 0;
     while (new_locations < number_of_locations) {
         for (var l = 0; l < number_of_locations; l++) {
             var pass_location = 0;
-            while (pass_location != galaxy.locations.length) {
-                var new_location = generateLocation(galaxy);
+            var new_location = generateLocation(galaxy);
+            while (pass_location != galaxy.location_total) {
                 galaxy.locations.forEach(function (location) {
                     var distance = findDistance(new_location, location);
                     if (distance > (new_location.amount / 3) * 1.1) {
@@ -499,11 +503,10 @@ var generateLocations = function (number_of_locations, galaxy) {
                 //generateSystem(new_location);
                 galaxy.systems.push(new_location);
             } else if (new_location.type == "nebula") {
-                generateNebula(new_location);
+                //generateNebula(new_location);
                 galaxy.nebulas.push(new_location);
             }
             new_locations += 1;
-            console.log('success');
         }
     }
 }
@@ -536,7 +539,22 @@ var findObjectsInRadius = function (main, objects) {
 }
 
 var compileObjectsInRadius = function (player) {
-    var players = findObjectsInRadius(player, rooms.users);
-    var locations = findLocationsInRadius(player, rooms.locations);
-    return { players: players, locations: locations }
+    var players = findObjectsInRadius(user, rooms['singularity'].players);
+    var asteroids = null;
+    var systems = null;
+    var nebulas = null;
+    if (player.amount < 1000) {
+        asteroids = findObjectsInRadius(player, rooms['singularity'].galaxies.asteroids);
+    }
+    if (player.amount < 5000) {
+        nebula = findObjectsInRadius(player, rooms['singularity'].galaxies.nebulas);
+    }
+    if (player.amount < 10000) {
+        systems = findObjectsInRadius(player, rooms['singularity'].galaxies.asteroids);
+    }
+    return { players: players, asteroids: asteroids, systems: systems, nebulas: nebulas};
 }
+
+
+//GENERATES SINGULARITY GALAXY ON SERVER START
+generateGalaxy(rooms["singularity"].galaxies[0]);
