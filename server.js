@@ -34,7 +34,12 @@ rooms["singularity"] = {
     messageHistory: [],
 
     //SINGULARITY
-    players: [],
+    players: [
+        {
+            username: "hi",
+            position: {x:0,y:0,z:0}
+        }
+    ],
     galaxies: [
         {
             name: "",
@@ -410,16 +415,6 @@ function isWin(tiles) {
 
 //SINGULARITY
 
-server.post("/:room/update", function (req, res) {
-    rooms[req.params.room].players.push(req.body);
-    res.send();
-});
-
-server.get("/:room/visible/:username", function (req,res) {
-    var response = compileObjectsInRadius();
-    res.json(response);
-});
-
 var findDistance = function (main, other) {
     var dx = main.position.x - other.position.x;
     var dy = main.position.y - other.position.y;
@@ -531,31 +526,60 @@ var generateGalaxy = function (galaxy) {
 var findObjectsInRadius = function (main, objects) {
     var nearObjects = [];
     objects.forEach(function (object) {
-        var userDistance = findDistance(main, object);
-        if (userDistance <= 2500) {
-            nearObjects.push(object);
+        if (object.username != main.username) {
+            var userDistance = findDistance(main, object);
         }
+        if (userDistance <= 5000) {
+            nearObjects.push(object);
+            
+        }
+        
     })
+    console.log(nearObjects)
     return nearObjects;
 }
 
 var compileObjectsInRadius = function (player) {
-    var players = findObjectsInRadius(user, rooms['singularity'].players);
-    var asteroids = null;
-    var systems = null;
-    var nebulas = null;
-    if (player.amount < 1000) {
-        asteroids = findObjectsInRadius(player, rooms['singularity'].galaxies.asteroids);
+    if (rooms['singularity'].players.length > 1) {
+        var players = findObjectsInRadius(player, rooms['singularity'].players);
     }
-    if (player.amount < 5000) {
+    var asteroids = null;
+    //var systems = null;
+    //var nebulas = null;
+    if (player.amount < 1000) {
+        asteroids = findObjectsInRadius(player, rooms['singularity'].galaxies[0].asteroids);
+    }
+    /*if (player.amount < 5000) {
         nebula = findObjectsInRadius(player, rooms['singularity'].galaxies.nebulas);
     }
     if (player.amount < 10000) {
-        systems = findObjectsInRadius(player, rooms['singularity'].galaxies.asteroids);
-    }
-    return { players: players, asteroids: asteroids, systems: systems, nebulas: nebulas};
+        systems = findObjectsInRadius(player, rooms['singularity'].galaxies.systems);
+    }*/
+    return { players: players, asteroids: asteroids, /*systems: systems, nebulas: nebulas*/};
 }
 
 
 //GENERATES SINGULARITY GALAXY ON SERVER START
 generateGalaxy(rooms["singularity"].galaxies[0]);
+
+server.post("/singularity/update", function (req, res) {
+    rooms['singularity'].players.forEach(function (player) {
+        if (player.username == req.body.username) {
+            player = req.body;
+        } else {
+            rooms['singularity'].players.push(req.body);
+        }
+    })
+    res.send();
+});
+
+server.get("/singularity/visible/:username", function (req,res) {
+    var aplayer = null;
+    rooms["singularity"].players.forEach(function (player) {
+        if (req.params.username == player.username) {
+            aplayer = player;
+        }
+    })
+    var response = compileObjectsInRadius(aplayer);
+    res.send(response);
+});
