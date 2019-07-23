@@ -417,6 +417,7 @@ server.post("/:room/update", function (req, res) {
 
 server.get("/:room/visible/:username", function (req,res) {
     var response = compileObjectsInRadius();
+    res.json(response);
 });
 
 var findDistance = function (main, other) {
