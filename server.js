@@ -1,5 +1,6 @@
 // imports
 const express = require("express");
+const cors = require("cors")
 
 // Setup Server
 var server = express();
@@ -15,6 +16,8 @@ server.options("*", function(req, res, next) {
     res.header("Access-Control-Allow-Headers", "Content-type");
     next();
 });
+
+server.use(cors())
 
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
@@ -417,6 +420,7 @@ server.post("/:room/update", function (req, res) {
 
 server.get("/:room/visible/:username", function (req,res) {
     var response = compileObjectsInRadius();
+    res.send({data: response})
 });
 
 var findDistance = function (main, other) {
