@@ -7,12 +7,12 @@ var server = express();
 var port = process.env.PORT || 3000;
 
 // Middleware
-server.use(function(req, res, next) {
+server.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", req.get("origin"));
     res.header("Access-Control-Allow-Credentials", "true");
     next();
 });
-server.options("*", function(req, res, next) {
+server.options("*", function (req, res, next) {
     res.header("Access-Control-Allow-Headers", "Content-type");
     next();
 });
@@ -40,7 +40,7 @@ rooms["singularity"] = {
     players: [
         {
             username: "hi",
-            position: {x:0,y:0,z:0}
+            position: { x: 0, y: 0, z: 0 }
         }
     ],
     galaxies: [
@@ -83,6 +83,7 @@ setInterval(() => {
 
     //Delete users from globalUsers
     deletedUsers.forEach(user => {
+        console.log(user + " logged off")
         delete globalUsers[user];
     });
 }, TIMEOUT);
@@ -133,7 +134,7 @@ server.post("/invites/:user", function (req, res) {
         rooms[req.body.room].messageHistory.push({ user: "Global", text: `${req.params.user} has already been invited` })
     } else {
         globalUsers[req.params.user].invites.push(req.body.room)
-        rooms[req.body.room].messageHistory.push({ user: "Global", text: `${req.body.from} invite ${req.params.user}` })
+        rooms[req.body.room].messageHistory.push({ user: "Global", text: `${req.body.from} invited ${req.params.user}` })
     }
     res.send()
 })
@@ -248,42 +249,73 @@ server.post("/:room/game/start", function (req, res) {
     res.send()
 });
 
+// START GAME TURN
+server.post("/:room/game/turn", function (req, res) {
+    rooms[req.params.room].drawing = true
+    rooms[req.params.room].startTime = new Date()
+
+    setTimeout(() => {
+        rooms[req.params.room].drawing = false
+        rooms[req.params.room].lines = []
+
+        // next turn
+        console.log(rooms[req.params.room].turn)
+        rooms[req.params.room].turn.turn++
+        rooms[req.params.room].turn.turn %= rooms[req.params.room].players.length
+        rooms[req.params.room].turn.user = rooms[req.params.room].players[rooms[req.params.room].turn.turn].name
+        console.log(rooms[req.params.room].turn)
+    }, 5000);
+    res.send()
+})
+
 // SEND GAME INFO
 server.post("/:room/game", function (req, res) {
-    // SET DATA
-    rooms[req.params.room] = req.body.data
-
-    var room = rooms[req.params.room]
-
     // GET ROOM TYPE
     var roomType = getRoomType(req.params.room)
 
     // SPECIFIC GAME TYPE DATA
     switch (roomType) {
         case 'pictionary':
+            // SET DATA
+            rooms[req.params.room].lines = req.body.lines
+
             // pictionary specific logic
+            if (rooms[req.params.room].started) {
+                if (rooms[req.params.room].drawing) {
+
+                } else if (rooms[req.params.room].roundWinner == '') {
+                    // CHECK FOR GAME WINNER
+
+                    // if game still isn't over after check
+                    if (rooms[req.params.room].winner == "none") {
+
+                    }
+                }
+            }
             break;
 
         case 'tictactoe':
+            // SET DATA
+            rooms[req.params.room] = req.body.data
 
-            if (room.started) {
+            if (rooms[req.params.room].started) {
                 // check for winner
-                if (room.winner == "none") {
+                if (rooms[req.params.room].winner == "none") {
 
-                    room.winner = isWin(room.tiles)
-                    if (room.winner == "X" || room.winner == "O") {
+                    rooms[req.params.room].winner = isWin(rooms[req.params.room].tiles)
+                    if (rooms[req.params.room].winner == "X" || rooms[req.params.room].winner == "O") {
                         // set winner to last user
-                        room.winner = room.turn.user
-                        room.players[getArrayValueIndex(room.winner, room.players)].score++
+                        rooms[req.params.room].winner = rooms[req.params.room].turn.user
+                        rooms[req.params.room].players[getArrayValueIndex(rooms[req.params.room].winner, rooms[req.params.room].players)].score++
                     }
                 }
 
                 // if game still isn't over after check
-                if (room.winner == "none") {
+                if (rooms[req.params.room].winner == "none") {
                     // next turn
-                    room.turn.turn++
-                    room.turn.turn %= room.players.length
-                    room.turn.user = room.players[room.turn.turn].name
+                    rooms[req.params.room].turn.turn++
+                    rooms[req.params.room].turn.turn %= rooms[req.params.room].players.length
+                    rooms[req.params.room].turn.user = rooms[req.params.room].players[rooms[req.params.room].turn.turn].name
                 }
 
             }
@@ -332,6 +364,7 @@ function createRoom(room) {
             data.drawings = ["boat", "horse", "dinosaur", "crying children"]
             data.lines = [];
             data.drawing = false
+            data.startTime = new Date()
 
             break;
 
@@ -423,9 +456,9 @@ server.post("/:room/update", function (req, res) {
     res.send();
 });
 
-server.get("/:room/visible/:username", function (req,res) {
+server.get("/:room/visible/:username", function (req, res) {
     var response = compileObjectsInRadius();
-    res.send({data: response})
+    res.send({ data: response })
 });
 
 var findDistance = function (main, other) {
@@ -544,9 +577,9 @@ var findObjectsInRadius = function (main, objects) {
         }
         if (userDistance <= 5000) {
             nearObjects.push(object);
-            
+
         }
-        
+
     })
     console.log(nearObjects)
     return nearObjects;
@@ -568,7 +601,7 @@ var compileObjectsInRadius = function (player) {
     if (player.amount < 10000) {
         systems = findObjectsInRadius(player, rooms['singularity'].galaxies.systems);
     }*/
-    return { players: players, asteroids: asteroids, /*systems: systems, nebulas: nebulas*/};
+    return { players: players, asteroids: asteroids, /*systems: systems, nebulas: nebulas*/ };
 }
 
 
@@ -586,7 +619,7 @@ server.post("/singularity/update", function (req, res) {
     res.send();
 });
 
-server.get("/singularity/visible/:username", function (req,res) {
+server.get("/singularity/visible/:username", function (req, res) {
     var aplayer = null;
     rooms["singularity"].players.forEach(function (player) {
         if (req.params.username == player.username) {
