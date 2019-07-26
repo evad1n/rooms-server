@@ -144,6 +144,10 @@ server.put("/:room/invite", function (req, res) {
     if (req.body.accepted) {
         rooms[req.params.room].messageHistory.push({ user: "Global", text: `${req.body.user} has joined` })
         globalUsers[req.body.user].rooms.push(req.params.room)
+
+        if (rooms[req.params.room].maxPlayers && rooms[req.params.room].users.length >= rooms[req.params.room].maxPlayers - 1) {
+            removeRoomInvites(req.params.room)
+        }
     } else {
         rooms[req.params.room].messageHistory.push({ user: "Global", text: `${req.body.user} declined the invitation from ${req.body.from}` })
     }
@@ -389,6 +393,15 @@ function createRoom(room) {
 
     // SET UP ROOM WITH CORRECT DATA
     rooms[room] = data
+}
+
+function removeRoomInvites(room) {
+    Object.keys(globalUsers).forEach(user => {
+        if (globalUsers[user].invites.includes(room)) {
+            var index = globalUsers[user].invites.indexOf(room)
+            globalUsers[user].invites.splice(index, 1)
+        }
+    });
 }
 
 function getArrayValueIndex(item, list) {
