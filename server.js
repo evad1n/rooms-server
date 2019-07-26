@@ -264,7 +264,7 @@ server.post("/:room/game/turn", function (req, res) {
         rooms[req.params.room].turn.turn %= rooms[req.params.room].players.length
         rooms[req.params.room].turn.user = rooms[req.params.room].players[rooms[req.params.room].turn.turn].name
         console.log(rooms[req.params.room].turn)
-    }, 5000);
+    }, 30000);
     res.send()
 })
 
