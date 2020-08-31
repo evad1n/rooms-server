@@ -31,31 +31,6 @@ rooms["home"] = {
     users: [],
     messageHistory: [],
 }
-rooms["singularity"] = {
-    //GLOBAL
-    users: [],
-    messageHistory: [],
-
-    //SINGULARITY
-    players: [
-        {
-            username: "hi",
-            position: { x: 0, y: 0, z: 0 }
-        }
-    ],
-    galaxies: [
-        {
-            name: "",
-            type: "",
-            position: { x: 0, y: 0, z: 0 },
-            extent: null,
-            asteroids: [],
-            systems: [],
-            nebulas: [],
-            location_total: 0,
-        }
-    ],
-}
 
 // LIST OF ALL USERS
 var globalUsers = {}
